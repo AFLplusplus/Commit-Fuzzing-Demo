@@ -59,7 +59,7 @@ class Harness(object):
     def fuzz(self):
         if not self.compiled:
             print(self.filename + " not compiled!")
-            return
+            return 0
         print("Fuzzing " + self.filename)
         global fuzzpath, fuzztime
         env = os.environ.copy()
