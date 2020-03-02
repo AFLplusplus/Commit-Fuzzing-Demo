@@ -69,7 +69,7 @@ class Harness(object):
         env = os.environ.copy()
         env["HARNESS"] = self.filename
         outdir = "/tmp/aflCI-out-" + str(uuid.uuid4())
-        c = '"' + os.path.join(fuzzpath, "afl-fuzz") + '" -i "' + self.seeds + '" -o "' + outdir + '" -d -V %d ' % fuzztime + " -- $HARNESS"
+        c = '"' + os.path.join(fuzzpath, "afl-fuzz") + '" -i "' + self.seeds + '" -o "' + outdir + '" -m none -d -V %d ' % fuzztime + " -- $HARNESS"
         print (c)
         process = subprocess.Popen(c, env=env, shell=True)
         process.wait()
@@ -79,7 +79,7 @@ class Harness(object):
             return len(os.listdir(crashes)) -1
         else:
             print("All OK!")
-            outdir.cleanup()
+            os.system("rm -rf '" + outdir + "'")
             os.unlink(self.filename)
             return 0
 
