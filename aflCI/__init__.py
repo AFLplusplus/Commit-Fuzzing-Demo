@@ -1,8 +1,9 @@
 import os
 import tempfile
+import subprocess
 import uuid
 
-fuzzpath = "~/AFLplusplus/"
+fuzzpath = os.path.expanduser("~/AFLplusplus/")
 fuzztime = 10*60 # 10 minutes
 
 harnesses = []
@@ -17,7 +18,7 @@ class Harness(object):
         self.deps = deps
         self.cmd = cmd
         self.seeds = seeds
-        self.harness = "/tmp/aflCI-" + uuid.uuid4()
+        self.compiled = False
     
     def generate_whitelist(self):
         o = subprocess.getoutput("git diff --name-only HEAD HEAD~1")
@@ -31,35 +32,59 @@ class Harness(object):
     def compile(self):
         print("Compiling " + self.filename)
         global fuzzpath
+        wl = self.generate_whitelist()
+        if len(wl) == 0:
+            print ("Skipping, not touched by last commit")
+            return
         env = os.environ.copy()
         tmplist = tempfile.NamedTemporaryFile(delete=False)
         env["AFL_LLVM_WHITELIST"] = tmplist.name
-        tmp.write(self.generate_whitelist())
-        tmp.close()
+        tmplist.write(str.encode("\n".join(wl)))
+        tmplist.close()
         env["CC"] = os.path.join(fuzzpath, "afl-clang-fast")
         env["CXX"] = os.path.join(fuzzpath, "afl-clang-fast++")
         env["LD"] = os.path.join(fuzzpath, "afl-clang-fast")
         env["AFL_LLVM_LAF_SPLIT_SWITCHES"] = "1"
         env["AFL_LLVM_LAF_TRANSFORM_COMPARES"] = "1"
         env["AFL_LLVM_LAF_SPLIT_COMPARES"] = "1"
-        env["HARNESS"] = self.harness
+        env["HARNESS"] = self.filename
         process = subprocess.Popen(self.cmd, env=env, shell=True)
         process.wait()
-        os.unlink(tmp.name)
+        if process.returncode != 0:
+            print("Compilation failed")
+        else:
+            self.compiled = True
+        os.unlink(tmplist.name)
     
     def fuzz(self):
+        if not self.compiled:
+            print(self.filename + " not compiled!")
+            return
         print("Fuzzing " + self.filename)
         global fuzzpath, fuzztime
         env = os.environ.copy()
-        env["HARNESS"] = self.harness
-        outdir = tempfile.TemporaryDirectory(dir="/tmp")
-        c = '"' + os.path.join(fuzzpath, "afl-fuzz") + '" -i "' + self.seeds + '" -o "' + outdir + " -d -V %d " % fuzztime + " -- $HARNESS"
+        env["HARNESS"] = self.filename
+        outdir = "/tmp/aflCI-out-" + str(uuid.uuid4())
+        c = '"' + os.path.join(fuzzpath, "afl-fuzz") + '" -i "' + self.seeds + '" -o "' + outdir + '" -d -V %d ' % fuzztime + " -- $HARNESS"
         print (c)
-        outdir.cleanup()
+        process = subprocess.Popen(c, env=env, shell=True)
+        process.wait()
+        crashes = os.path.join(outdir, "crashes")
+        if len(os.listdir(crashes)) > 1:
+            print("Crashes found! " + crashes)
+            return len(os.listdir(crashes)) -1
+        else:
+            print("All OK!")
+            outdir.cleanup()
+            os.unlink(self.filename)
+            return 0
 
 def run():
     global harnesses
     for h in harnesses:
         h.compile()
+    crashes = 0
     for h in harnesses:
-        h.fuzz()
+        crashes += h.fuzz()
+    if crashes > 0:
+        os.abort()
