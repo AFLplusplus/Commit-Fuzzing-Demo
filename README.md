@@ -1,4 +1,4 @@
-# AFL++ CI example
+# AFL++ Commit Fuzzing Demo
 
 This is an example library to show how to fuzz with AFL++ only the code modified by the last commit.
 
