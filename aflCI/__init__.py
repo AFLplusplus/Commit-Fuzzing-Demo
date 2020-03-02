@@ -41,12 +41,16 @@ class Harness(object):
         env["AFL_LLVM_WHITELIST"] = tmplist.name
         tmplist.write(str.encode("\n".join(wl)))
         tmplist.close()
+        for f in wl:
+            print(f)
         env["CC"] = os.path.join(fuzzpath, "afl-clang-fast")
         env["CXX"] = os.path.join(fuzzpath, "afl-clang-fast++")
         env["LD"] = os.path.join(fuzzpath, "afl-clang-fast")
         env["AFL_LLVM_LAF_SPLIT_SWITCHES"] = "1"
         env["AFL_LLVM_LAF_TRANSFORM_COMPARES"] = "1"
         env["AFL_LLVM_LAF_SPLIT_COMPARES"] = "1"
+        env["AFL_USE_UBSAN"] = "1"
+        env["AFL_USE_ASAN"] = "1"
         env["HARNESS"] = self.filename
         process = subprocess.Popen(self.cmd, env=env, shell=True)
         process.wait()
