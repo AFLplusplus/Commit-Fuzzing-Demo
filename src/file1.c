@@ -3,7 +3,7 @@
 int target_func1(char *buf, int size) {
 
   switch (buf[0]) {
-
+    //;
     case 1:
       if (buf[1] == '\x44') {
 
